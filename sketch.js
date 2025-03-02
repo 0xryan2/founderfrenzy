@@ -11,6 +11,8 @@ let currentQuestion = 0;        // Current question index
 let playerChoices = [];         // Array to track player's choices
 let feedbackMessage = "";       // Feedback message to display
 let feedbackTimer = 0;          // Timer for feedback message
+let feedbackIsPositive = true;  // Whether the feedback is positive or negative
+let valuationChangeDisplay = { amount: 0, timer: 0 }; // For displaying valuation changes
 let buttonHover = -1;           // Track which button is being hovered
 let founderSkills = {           // Founder skills that affect gameplay
   technical: 1,
@@ -455,6 +457,34 @@ function formatNumber(num) {
   return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
 
+// Helper function to wrap text
+function wrapText(text, x, y, maxWidth, lineHeight) {
+  let words = text.split(' ');
+  let line = '';
+  let testLine = '';
+  let lineCount = 0;
+  
+  for(let n = 0; n < words.length; n++) {
+    testLine = line + words[n] + ' ';
+    let testWidth = textWidth(testLine);
+    
+    if (testWidth > maxWidth && n > 0) {
+      fill(COLORS.text);
+      text(line, x, y + (lineCount * lineHeight));
+      line = words[n] + ' ';
+      lineCount++;
+    }
+    else {
+      line = testLine;
+    }
+  }
+  
+  fill(COLORS.text);
+  text(line, x, y + (lineCount * lineHeight));
+  
+  return lineCount + 1; // Return the number of lines used
+}
+
 // Setup function: initializes canvas and frame rate
 function setup() {
   let canvas = createCanvas(800, 600);       // Canvas size: 800px wide, 600px tall
@@ -490,6 +520,11 @@ function draw() {
   // Draw feedback message if active
   if (millis() < feedbackTimer) {
     drawFeedbackMessage();
+  }
+  
+  // Draw valuation change if active
+  if (millis() < valuationChangeDisplay.timer) {
+    drawValuationChange();
   }
 }
 
@@ -647,7 +682,7 @@ function drawStoryScreen() {
       text("and build your company valuation.", width/2, 310);
       break;
     case 2:
-      text("Your goal: reach a $15 million valuation", width/2, 220);
+      text("Your goal: reach a $10 million valuation", width/2, 220);
       text("to impress venture capitalists.", width/2, 250);
       text("Your skills and choices will determine", width/2, 280);
       text("if you can make it in the startup world.", width/2, 310);
@@ -771,26 +806,29 @@ function drawCurrentQuestion() {
   
   let question = QUESTIONS[currentQuestion];
   
-  // Question panel with shadow and rounded corners
-  drawPanel(width/2, 170, 600, 80);
+  // Question panel with shadow and rounded corners - make it taller
+  drawPanel(width/2, 170, 600, 100);
   
-  // Question text
+  // Question text with wrapping
   fill(COLORS.text);
   textSize(18);
-  text(question.text, width/2, 170);
+  textAlign(CENTER, TOP);
+  wrapText(question.text, width/2, 140, 550, 25);
+  textAlign(CENTER, CENTER);
   
   // Choices
   for (let i = 0; i < question.choices.length; i++) {
     let choice = question.choices[i];
-    let y = 300 + i * 70;
+    let y = 300 + i * 80; // Increase vertical spacing
     
-    // Choice button with shadow and rounded corners
-    drawButton(width/2, y, 500, 50, buttonHover === i);
+    // Choice button with shadow and rounded corners - make it taller
+    drawButton(width/2, y, 500, 60, buttonHover === i);
     
-    // Choice text
+    // Choice text with wrapping
     fill(COLORS.lightText);
     textSize(16);
-    text(choice.text, width/2, y);
+    textAlign(CENTER, CENTER);
+    wrapText(choice.text, width/2, y - 10, 450, 20);
   }
 }
 
@@ -825,7 +863,7 @@ function handleMainGameClick() {
     
     // Check if a choice was clicked
     for (let i = 0; i < question.choices.length; i++) {
-      if (isMouseInRect(width/2, 300 + i*70, 500, 50)) {
+      if (isMouseInRect(width/2, 300 + i*80, 500, 60)) { // Updated coordinates to match new button size
         let choice = question.choices[i];
         
         // Add luck factor - 20% chance of a different outcome
@@ -846,6 +884,9 @@ function handleMainGameClick() {
         // Apply choice impact with luck factor
         valuation += actualImpact;
         
+        // Show valuation change
+        showValuationChange(actualImpact);
+        
         // Apply skill changes
         if (choice.impact.skills) {
           for (let skill in choice.impact.skills) {
@@ -859,7 +900,7 @@ function handleMainGameClick() {
         playerChoices.push(i);
         
         // Show feedback with luck message
-        showFeedback(luckMessage + choice.feedback);
+        showFeedback(luckMessage + choice.feedback, actualImpact >= 0);
         
         // Move to next question
         currentQuestion++;
@@ -893,18 +934,25 @@ function handleMainGameClick() {
       // Add luck factor to events too - 20% chance of different outcome
       let luckyRoll = random(1);
       let actualImpact = currentEvent.impact * skillBonus;
+      let luckMessage = "";
       
       if (luckyRoll < 0.1) {
         // 10% chance of a much better outcome
         actualImpact = actualImpact * 1.5;
-        showFeedback("A stroke of luck made this even better!");
+        luckMessage = "A stroke of luck made this even better!";
       } else if (luckyRoll < 0.2) {
         // 10% chance of a much worse outcome
         actualImpact = actualImpact * 0.5;
-        showFeedback("Bad luck made this worse than expected.");
+        luckMessage = "Bad luck made this worse than expected.";
       }
       
       valuation += actualImpact;
+      
+      // Show valuation change
+      showValuationChange(actualImpact);
+      
+      // Show feedback
+      showFeedback(luckMessage, actualImpact >= 0);
       
       // Reset for next question cycle
       currentQuestion = 0;
@@ -922,13 +970,15 @@ function handleMainGameClick() {
 function drawEvent() {
   if (!currentEvent) return;
   
-  // Event panel with shadow and rounded corners
-  drawPanel(width/2, 170, 600, 80);
+  // Event panel with shadow and rounded corners - make it taller
+  drawPanel(width/2, 170, 600, 100);
   
-  // Event text
+  // Event text with wrapping
   fill(COLORS.text);
   textSize(18);
-  text(currentEvent.text, width/2, 170);
+  textAlign(CENTER, TOP);
+  wrapText(currentEvent.text, width/2, 140, 550, 25);
+  textAlign(CENTER, CENTER);
   
   // Apply skill bonus if player has points in that skill
   let skillBonus = 1;
@@ -1024,8 +1074,11 @@ function handlePitchScreenClick() {
       // Apply pitch impact with luck factor
       valuation += actualImpact;
       
+      // Show valuation change
+      showValuationChange(actualImpact);
+      
       // Show feedback with luck message
-      showFeedback(luckMessage + "You pitched " + pitch.title + " to the investors!");
+      showFeedback(luckMessage + "You pitched " + pitch.title + " to the investors!", actualImpact >= 0);
       
       // Move to end screen
       gameState = "END";
@@ -1040,7 +1093,7 @@ function drawEndScreen() {
   drawPanel(width/2, height/2, 600, 400);
   
   // Title
-  let success = valuation >= 15000000;
+  let success = valuation >= 10000000;
   
   if (success) {
     fill(COLORS.accent);
@@ -1064,10 +1117,10 @@ function drawEndScreen() {
   text("Final Valuation: $" + formatNumber(valuation), width/2, 250);
   
   // Goal
-  text("Goal: $15,000,000", width/2, 280);
+  text("Goal: $10,000,000", width/2, 280);
   
   // Success percentage
-  let percentage = min(100, floor(valuation / 150000));
+  let percentage = min(100, floor(valuation / 100000));
   text("Success Rate: " + percentage + "%", width/2, 310);
   
   // Skills summary
@@ -1089,21 +1142,54 @@ function drawEndScreen() {
 }
 
 // Show feedback message
-function showFeedback(message) {
+function showFeedback(message, isPositive) {
   feedbackMessage = message;
   feedbackTimer = millis() + 3000; // Show for 3 seconds
+  feedbackIsPositive = isPositive;
+}
+
+// Show valuation change
+function showValuationChange(amount) {
+  valuationChangeDisplay.amount = amount;
+  valuationChangeDisplay.timer = millis() + 2000; // Show for 2 seconds
 }
 
 // Draw feedback message
 function drawFeedbackMessage() {
   // Semi-transparent panel with rounded corners
   noStroke();
-  fill(0, 0, 0, 180);
+  
+  // Change color based on whether feedback is positive or negative
+  if (feedbackIsPositive) {
+    fill(52, 168, 83, 180); // Green with alpha
+  } else {
+    fill(234, 67, 53, 180); // Red with alpha
+  }
+  
   rect(width/2, height - 50, width, 60, 10);
   
   fill(255);
   textSize(16);
   text(feedbackMessage, width/2, height - 50);
+}
+
+// Draw valuation change
+function drawValuationChange() {
+  let amount = valuationChangeDisplay.amount;
+  let alpha = map(valuationChangeDisplay.timer - millis(), 0, 2000, 0, 255);
+  
+  textAlign(RIGHT, CENTER);
+  textSize(24);
+  
+  if (amount >= 0) {
+    fill(52, 168, 83, alpha); // Green with fading alpha
+    text("+" + formatNumber(amount), width - 50, 80);
+  } else {
+    fill(234, 67, 53, alpha); // Red with fading alpha
+    text(formatNumber(amount), width - 50, 80);
+  }
+  
+  textAlign(CENTER, CENTER);
 }
 
 // Reset game to start over
