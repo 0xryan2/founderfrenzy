@@ -20,7 +20,7 @@ A fast-paced startup simulation game where you build your company from idea to f
 
 ## Play Now
 
-You can play Founder Frenzy directly in your browser: [Play Founder Frenzy](https://[your-github-username].github.io/founder-frenzy/)
+You can play Founder Frenzy directly in your browser: [Play Founder Frenzy](https://0xryan2.github.io/founderfrenzy/)
 
 ## Technologies Used
 
