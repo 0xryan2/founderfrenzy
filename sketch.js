@@ -459,11 +459,42 @@ function formatNumber(num) {
 
 // Setup function: initializes canvas and frame rate
 function setup() {
-  let canvas = createCanvas(800, 600);       // Canvas size: 800px wide, 600px tall
-  canvas.parent('game-container');           // Place canvas in the game-container element
-  frameRate(60);                // 60 frames per second for smooth animation
-  textAlign(CENTER, CENTER);    // Center text alignment
-  rectMode(CENTER);             // Center rectangle drawing mode
+  // Create a responsive canvas that fits the container
+  let container = document.getElementById('game-container');
+  let containerWidth = container.offsetWidth;
+  
+  // Calculate height based on aspect ratio (4:3)
+  let canvasHeight = min(containerWidth * 0.75, 600);
+  
+  // Create canvas with responsive dimensions
+  let canvas = createCanvas(containerWidth, canvasHeight);
+  canvas.parent('game-container');
+  
+  // Set frame rate
+  frameRate(60);
+  
+  // Set text alignment
+  textAlign(CENTER, CENTER);
+  rectMode(CENTER);
+  
+  // Log canvas dimensions
+  console.log("Canvas created with dimensions:", width, "x", height);
+}
+
+// Add a window resize handler
+function windowResized() {
+  // Resize canvas when window size changes
+  let container = document.getElementById('game-container');
+  let containerWidth = container.offsetWidth;
+  
+  // Calculate height based on aspect ratio (4:3)
+  let canvasHeight = min(containerWidth * 0.75, 600);
+  
+  // Resize the canvas
+  resizeCanvas(containerWidth, canvasHeight);
+  
+  // Log resize event
+  console.log("Canvas resized to:", width, "x", height);
 }
 
 // Draw function: main game loop, runs every frame
